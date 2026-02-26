@@ -8,3 +8,5 @@ python-multipart
 grad-cam
 numpy
 fpdf
+streamlit
+requests

@@ -3,58 +3,68 @@ import torch.nn as nn
 import timm
 
 # -----------------------------
-# CNN HEAD (same as training)
+# CNN HEAD (Exact Training Version)
 # -----------------------------
 class CNNHead(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv = nn.Sequential(
-            nn.Conv1d(768, 256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
+        # 768 → 3x16x16
+        self.fc_to_map = nn.Linear(768, 3 * 16 * 16)
 
-            nn.Conv1d(256, 128, kernel_size=3, padding=1),
+        self.conv = nn.Sequential(
+            nn.Conv2d(3, 32, 3, padding=1),
             nn.ReLU(),
-            nn.AdaptiveAvgPool1d(1)
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(1)
         )
 
-        self.fc = nn.Linear(128, 2)
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(128, 2)
+        )
 
     def forward(self, x):
-        # x shape from ViT = (batch, 768)
-        x = x.unsqueeze(2)            # → (batch, 768, 1)
-        x = self.conv(x)              # → (batch, 128, 1)
-        x = x.squeeze(2)              # → (batch, 128)
-        x = self.fc(x)                # → (batch, 2)
-        return x
+        x = self.fc_to_map(x)
+        x = x.view(-1, 3, 16, 16)
+        x = self.conv(x)
+        return self.classifier(x)
 
 
 # -----------------------------
-# HYBRID VIT + CNN MODEL
+# HYBRID MODEL (Exact Training Version)
 # -----------------------------
 class HybridModel(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # Vision Transformer backbone
+        # SAME as training
         self.vit = timm.create_model(
             "vit_base_patch16_224",
-            pretrained=False,
-            num_classes=0   # IMPORTANT → outputs embeddings
+            pretrained=False  # IMPORTANT: False for loading weights
         )
 
-        # CNN classifier head
+        self.vit.head = nn.Identity()
+
+        # freeze vit (like training)
+        for p in self.vit.parameters():
+            p.requires_grad = False
+
         self.cnn = CNNHead()
 
     def forward(self, x):
-        features = self.vit(x)  # → (batch, 768)
-        out = self.cnn(features)
-        return out
+        features = self.vit(x)
+        return self.cnn(features)
 
 
 # -----------------------------
-# MODEL LOADER FUNCTION
+# MODEL LOADER
 # -----------------------------
 def load_model(weights_path: str, device="cpu"):
     model = HybridModel()
