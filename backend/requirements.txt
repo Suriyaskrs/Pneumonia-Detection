@@ -5,8 +5,5 @@ torchvision
 timm
 pillow
 python-multipart
-grad-cam
+pytorch-grad-cam
 numpy
-fpdf
-streamlit
-requests

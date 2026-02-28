@@ -32,15 +32,29 @@ def create_pdf(results):
 
     for res in results:
         pdf.add_page()
-        pdf.set_font("Arial", size=16)
-        pdf.cell(200, 10, txt="Pneumonia Detection Report", ln=True)
+
+        pdf.set_font("Arial", "B", 18)
+        pdf.cell(0, 10, "Pneumonia Detection Report", ln=True)
+
+        pdf.ln(5)
 
         pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt=f"Prediction: {res['prediction']}", ln=True)
-        pdf.cell(200, 10, txt=f"Confidence: {res['confidence']:.2f}", ln=True)
+        pdf.cell(0, 10, f"Prediction: {res['prediction']}", ln=True)
+        pdf.cell(0, 10, f"Confidence: {res['confidence']:.2f}", ln=True)
 
-        img_path = res["image_path"]
-        pdf.image(img_path, x=10, y=40, w=180)
+        pdf.ln(5)
+
+        # -------- ORIGINAL IMAGE --------
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "Original X-ray", ln=True)
+        pdf.image(res["original_path"], x=15, w=180)
+
+        pdf.ln(95)
+
+        # -------- HEATMAP IMAGE --------
+        pdf.set_font("Arial", "B", 14)
+        pdf.cell(0, 10, "GradCAM Heatmap", ln=True)
+        pdf.image(res["heatmap_path"], x=15, w=180)
 
     return pdf.output(dest="S").encode("latin-1")
 
@@ -78,13 +92,20 @@ if uploaded_files:
                 st.image(heatmap_response.content, caption="GradCAM Heatmap")
 
             # Save for PDF
-            temp_path = f"temp_{idx}.png"
-            image.save(temp_path)
+            # Save original image
+            orig_path = f"orig_{idx}.png"
+            image.save(orig_path)
+
+            # Save heatmap image
+            heatmap_path = f"heatmap_{idx}.png"
+            with open(heatmap_path, "wb") as f:
+                f.write(heatmap_response.content)
 
             results_for_pdf.append({
                 "prediction": result['prediction'],
                 "confidence": result['confidence'],
-                "image_path": temp_path
+                "original_path": orig_path,
+                "heatmap_path": heatmap_path
             })
 
 # ---------------- PDF DOWNLOAD ----------------
